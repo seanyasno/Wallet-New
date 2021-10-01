@@ -1,4 +1,11 @@
-import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+import PropTypes from 'prop-types';
 import {
   StatusBar,
   View,
@@ -15,10 +22,11 @@ import {
   useColorScheme,
   I18nManager,
   Linking,
-  TouchableHighlight,
-  Touchable,
 } from 'react-native';
-import { BlueHeaderDefaultMain, BlueTransactionListItem } from '../../BlueComponents';
+import {
+  BlueHeaderDefaultMain,
+  BlueTransactionListItem,
+} from '../../BlueComponents';
 import WalletsCarousel from '../../components/WalletsCarousel';
 import { Icon } from 'react-native-elements';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
@@ -26,29 +34,97 @@ import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import ActionSheet from '../ActionSheet';
 import loc from '../../loc';
 import { FContainer, FButton } from '../../components/FloatButtons';
-import { useFocusEffect, useIsFocused, useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import {
+  useFocusEffect,
+  useIsFocused,
+  useNavigation,
+  useRoute,
+  useTheme,
+} from '@react-navigation/native';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
-import { isDesktop, isMacCatalina, isTablet } from '../../blue_modules/environment';
+import {
+  isDesktop,
+  isMacCatalina,
+  isTablet,
+} from '../../blue_modules/environment';
 import BlueClipboard from '../../blue_modules/clipboard';
 import navigationStyle from '../../components/navigationStyle';
-import Marketplace from './marketplace';
 import Carousel from 'react-native-banner-carousel-updated';
 import { FlatList } from 'react-native-gesture-handler';
-import { Button } from 'react-native-share';
-import { ServicesList } from './servicesList';
 
 const scanqrHelper = require('../../helpers/scan-qr');
 const A = require('../../blue_modules/analytics');
 const fs = require('../../blue_modules/fs');
-const WalletsListSections = { CAROUSEL: 'CAROUSEL', LOCALTRADER: 'LOCALTRADER', TRANSACTIONS: 'TRANSACTIONS', SERVICES: 'SERVICES' };
+const WalletsListSections = {
+  CAROUSEL: 'CAROUSEL',
+  LOCALTRADER: 'LOCALTRADER',
+  TRANSACTIONS: 'TRANSACTIONS',
+  BANNERS: 'BANNERS',
+  SERVICES: 'SERVICES',
+};
+
+const ServicesListItem = ({ item }) => {
+  console.log('lol', item);
+  const { colors } = useTheme();
+  const { title, link, image, description } = item.key;
+
+  return (
+    <TouchableOpacity
+      onPress={() => {
+        Linking.openURL(link);
+      }}
+    >
+      <View
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          padding: 10,
+        }}
+      >
+        <Image style={{ height: 60, width: 60 }} source={{ uri: image }} />
+        <View style={{ paddingLeft: 10, justifyContent: 'flex-start' }}>
+          <Text
+            style={{
+              color: colors.foregroundColor,
+              fontWeight: 'bold',
+              fontSize: 20,
+            }}
+          >
+            {title}
+          </Text>
+          <Text style={{ color: '#a8a8a8' }}>{description}</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+const ServicesListHeader = () => {
+  return (
+    <View style={{ padding: 10 }}>
+      <Text style={{ fontSize: 26, fontWeight: 'bold', marginBottom: 8 }}>
+        Services
+      </Text>
+    </View>
+  );
+};
+
+ServicesListHeader.propTypes = {
+  services: PropTypes.array.isRequired,
+};
 
 const WalletsList = () => {
   const walletsCarousel = useRef();
   const currentWalletIndex = useRef(0);
   const colorScheme = useColorScheme();
-  const { wallets, getTransactions, isImportingWallet, getBalance, refreshAllWalletTransactions, setSelectedWallet } = useContext(
-    BlueStorageContext,
-  );
+  const {
+    wallets,
+    getTransactions,
+    isImportingWallet,
+    getBalance,
+    refreshAllWalletTransactions,
+    setSelectedWallet,
+  } = useContext(BlueStorageContext);
   const { width } = useWindowDimensions();
   const { colors, scanImage } = useTheme();
   const { navigate, setOptions } = useNavigation();
@@ -56,7 +132,9 @@ const WalletsList = () => {
   const routeName = useRoute().name;
   const [isLoading, setIsLoading] = useState(false);
   const [isLargeScreen, setIsLargeScreen] = useState(
-    Platform.OS === 'android' ? isTablet() : width >= Dimensions.get('screen').width / 2 && (isTablet() || isDesktop),
+    Platform.OS === 'android'
+      ? isTablet()
+      : width >= Dimensions.get('screen').width / 2 && (isTablet() || isDesktop)
   );
   const dataSource = getTransactions(null, 10);
   const walletsCount = useRef(wallets.length);
@@ -84,17 +162,46 @@ const WalletsList = () => {
     },
   });
 
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      try {
+        const response = await fetch(
+          'https://api.jsonbin.io/b/6157270f9548541c29bbfffe/1',
+          {
+            headers: {
+              'Secret-Key':
+                '$2b$10$Fh8TMR6T2FMboZlixjHwZ.icJuaarXOZN9FVgwHWaPbwc0dxpyY3e',
+            },
+          }
+        );
+        const data = await response.json();
+        console.log(data);
+        if (mounted) {
+          setServices(data);
+        }
+      } catch (error) {}
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       verifyBalance();
       setSelectedWallet('');
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []),
+    }, [])
   );
 
   useEffect(() => {
     if (walletsCount.current < wallets.length) {
-      walletsCarousel.current?.scrollToItem({ item: wallets[walletsCount.current] });
+      walletsCarousel.current?.scrollToItem({
+        item: wallets[walletsCount.current],
+      });
     }
     walletsCount.current = wallets.length;
   }, [wallets]);
@@ -105,23 +212,6 @@ const WalletsList = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isImportingWallet]);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const response = await fetch('https://api.jsonbin.io/b/61144d4ae1b0604017adaa89/2', {
-          headers: {
-            'Secret-Key': '$2b$10$Fh8TMR6T2FMboZlixjHwZ.icJuaarXOZN9FVgwHWaPbwc0dxpyY3e'
-          }
-        });
-        const data = await response.json();
-        console.log(data);
-        setServices(data);
-      } catch (error) {
-
-      }
-    })();
-  }, []);
 
   const verifyBalance = () => {
     if (getBalance() !== 0) {
@@ -144,14 +234,34 @@ const WalletsList = () => {
       },
       headerRight: () =>
         I18nManager.isRTL ? null : (
-          <TouchableOpacity accessibilityRole="button" testID="SettingsButton" style={styles.headerTouch} onPress={navigateToSettings}>
-            <Icon size={22} name="kebab-horizontal" type="octicon" color={colors.foregroundColor} />
+          <TouchableOpacity
+            accessibilityRole='button'
+            testID='SettingsButton'
+            style={styles.headerTouch}
+            onPress={navigateToSettings}
+          >
+            <Icon
+              size={22}
+              name='kebab-horizontal'
+              type='octicon'
+              color={colors.foregroundColor}
+            />
           </TouchableOpacity>
         ),
       headerLeft: () =>
         I18nManager.isRTL ? (
-          <TouchableOpacity accessibilityRole="button" testID="SettingsButton" style={styles.headerTouch} onPress={navigateToSettings}>
-            <Icon size={22} name="kebab-horizontal" type="octicon" color={colors.foregroundColor} />
+          <TouchableOpacity
+            accessibilityRole='button'
+            testID='SettingsButton'
+            style={styles.headerTouch}
+            onPress={navigateToSettings}
+          >
+            <Icon
+              size={22}
+              name='kebab-horizontal'
+              type='octicon'
+              color={colors.foregroundColor}
+            />
           </TouchableOpacity>
         ) : null,
     });
@@ -166,9 +276,15 @@ const WalletsList = () => {
    * Forcefully fetches TXs and balance for ALL wallets.
    * Triggered manually by user on pull-to-refresh.
    */
-  const refreshTransactions = (showLoadingIndicator = true, showUpdateStatusIndicator = false) => {
+  const refreshTransactions = (
+    showLoadingIndicator = true,
+    showUpdateStatusIndicator = false
+  ) => {
     setIsLoading(showLoadingIndicator);
-    refreshAllWalletTransactions(showLoadingIndicator, showUpdateStatusIndicator).finally(() => setIsLoading(false));
+    refreshAllWalletTransactions(
+      showLoadingIndicator,
+      showUpdateStatusIndicator
+    ).finally(() => setIsLoading(false));
   };
 
   useEffect(() => {
@@ -176,7 +292,7 @@ const WalletsList = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // call refreshTransactions() only once, when screen mounts
 
-  const handleClick = index => {
+  const handleClick = (index) => {
     if (index <= wallets.length - 1) {
       const wallet = wallets[index];
       const walletID = wallet.getID();
@@ -190,21 +306,35 @@ const WalletsList = () => {
     }
   };
 
-  const onSnapToItem = e => {
+  const onSnapToItem = (e) => {
     if (!isFocused) return;
 
     const contentOffset = e.nativeEvent.contentOffset;
     const index = Math.ceil(contentOffset.x / width);
 
     if (currentWalletIndex.current !== index) {
-      console.log('onSnapToItem', wallets.length === index ? 'NewWallet/Importing card' : index);
-      if (wallets[index] && (wallets[index].timeToRefreshBalance() || wallets[index].timeToRefreshTransaction())) {
-        console.log(wallets[index].getLabel(), 'thinks its time to refresh either balance or transactions. refetching both');
-        refreshAllWalletTransactions(index, false).finally(() => setIsLoading(false));
+      console.log(
+        'onSnapToItem',
+        wallets.length === index ? 'NewWallet/Importing card' : index
+      );
+      if (
+        wallets[index] &&
+        (wallets[index].timeToRefreshBalance() ||
+          wallets[index].timeToRefreshTransaction())
+      ) {
+        console.log(
+          wallets[index].getLabel(),
+          'thinks its time to refresh either balance or transactions. refetching both'
+        );
+        refreshAllWalletTransactions(index, false).finally(() =>
+          setIsLoading(false)
+        );
       }
       currentWalletIndex.current = index;
     } else {
-      console.log('onSnapToItem did not change. Most likely momentum stopped at the same index it started.');
+      console.log(
+        'onSnapToItem did not change. Most likely momentum stopped at the same index it started.'
+      );
     }
   };
 
@@ -212,12 +342,20 @@ const WalletsList = () => {
     const style = { opacity: isLoading ? 1.0 : 0.5 };
     return (
       <View style={[styles.listHeaderBack, stylesHook.listHeaderBack]}>
-        <Text textBreakStrategy="simple" style={[styles.listHeaderText, stylesHook.listHeaderText]}>
+        <Text
+          textBreakStrategy='simple'
+          style={[styles.listHeaderText, stylesHook.listHeaderText]}
+        >
           {`${loc.transactions.list_title}${'  '}`}
         </Text>
         {isDesktop && (
-          <TouchableOpacity accessibilityRole="button" style={style} onPress={() => refreshTransactions(true)} disabled={isLoading}>
-            <Icon name="refresh" type="font-awesome" color={colors.feeText} />
+          <TouchableOpacity
+            accessibilityRole='button'
+            style={style}
+            onPress={() => refreshTransactions(true)}
+            disabled={isLoading}
+          >
+            <Icon name='refresh' type='font-awesome' color={colors.feeText} />
           </TouchableOpacity>
         )}
       </View>
@@ -228,32 +366,41 @@ const WalletsList = () => {
     if (wallets.length > 1 && !isImportingWallet) {
       navigate('ReorderWallets');
     } else {
-      ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
+      ReactNativeHapticFeedback.trigger('notificationError', {
+        ignoreAndroidSystemSettings: false,
+      });
     }
   };
 
-  const renderTransactionListsRow = data => {
+  const renderTransactionListsRow = (data) => {
     return (
       <View style={styles.transaction}>
-        <BlueTransactionListItem item={data.item} itemPriceUnit={data.item.walletPreferredBalanceUnit} />
+        <BlueTransactionListItem
+          item={data.item}
+          itemPriceUnit={data.item.walletPreferredBalanceUnit}
+        />
       </View>
     );
   };
 
   const renderLocalTrader = () => {
-    if (wallets.every(wallet => wallet === false)) return null;
+    if (wallets.every((wallet) => wallet === false)) return null;
     if (wallets.length > 0 && !isImportingWallet) {
       const button = (
         <TouchableOpacity
-          accessibilityRole="button"
+          accessibilityRole='button'
           onPress={() => {
             navigate('HodlHodl', { screen: 'HodlHodl' });
           }}
           style={[styles.ltRoot, stylesHook.ltRoot]}
         >
           <View style={styles.ltTextWrap}>
-            <Text style={[styles.ltTextBig, stylesHook.ltTextBig]}>{loc.hodl.local_trader}</Text>
-            <Text style={[styles.ltTextSmall, stylesHook.ltTextSmall]}>{loc.hodl.p2p}</Text>
+            <Text style={[styles.ltTextBig, stylesHook.ltTextBig]}>
+              {loc.hodl.local_trader}
+            </Text>
+            <Text style={[styles.ltTextSmall, stylesHook.ltTextSmall]}>
+              {loc.hodl.p2p}
+            </Text>
           </View>
         </TouchableOpacity>
       );
@@ -269,40 +416,53 @@ const WalletsList = () => {
     const images = [
       {
         url: 'http://155.138.221.92:8000/banners/banner1.png',
-        link: 'https://play.google.com/store/apps/details?id=com.satoshiloot.satoshivegas',
+        link:
+          'https://play.google.com/store/apps/details?id=com.satoshiloot.satoshivegas',
       },
       {
         url: 'http://155.138.221.92:8000/banners/banner2.png',
-        link: 'https://bc.game/i-415mtygn-n/'
+        link:
+          'https://play.google.com/store/apps/details?id=com.satoshiloot.satoshivegas',
       },
       {
         url: 'http://155.138.221.92:8000/banners/banner3.png',
-        link: 'https://www.bitrefill.com/buy/'
-      }
+        link:
+          'https://play.google.com/store/apps/details?id=com.satoshiloot.satoshivegas',
+      },
     ];
 
     return (
-      <View style={{padding: 10}}>
+      <View style={{ padding: 10 }}>
         <Carousel
           autoplay
           autoplayTimeout={5000}
           loop
           index={0}
-          pageSize={Dimensions.get('window').width}>
-            {images.map((image, index) => (
-              <View key={index}>
-                <TouchableOpacity onPress={() => {
+          pageSize={Dimensions.get('window').width}
+        >
+          {images.map((image, index) => (
+            <View key={index}>
+              <TouchableOpacity
+                onPress={() => {
                   console.log(`opening ${image.link}`);
                   Linking.openURL(image.link);
-                }}>
-                  <Image style={{height: 100, width: bannerWidth - 20, borderRadius: 8}} source={{uri: image.url}}/>
-                </TouchableOpacity>
-              </View>
-            ))}
+                }}
+              >
+                <Image
+                  style={{
+                    height: 100,
+                    width: bannerWidth - 20,
+                    borderRadius: 8,
+                  }}
+                  source={{ uri: image.url }}
+                />
+              </TouchableOpacity>
+            </View>
+          ))}
         </Carousel>
       </View>
     );
-  }
+  };
 
   const renderWalletsCarousel = () => {
     return (
@@ -313,14 +473,18 @@ const WalletsList = () => {
         handleLongPress={handleLongPress}
         onMomentumScrollEnd={onSnapToItem}
         ref={walletsCarousel}
-        testID="WalletsList"
+        testID='WalletsList'
         horizontal
         scrollEnabled={isFocused}
       />
     );
   };
 
-  const renderSectionItem = item => {
+  const renderSectionItem = (item) => {
+    console.log('deadpool', JSON.stringify(item));
+    console.log('hulk', JSON.stringify(item.item));
+    // console.log('superman', item.section);
+    // console.log('batman', item.section.data);
     switch (item.section.key) {
       case WalletsListSections.CAROUSEL:
         return isLargeScreen ? null : renderWalletsCarousel();
@@ -328,56 +492,46 @@ const WalletsList = () => {
         return renderLocalTrader();
       case WalletsListSections.TRANSACTIONS:
         return renderTransactionListsRow(item);
-      case 'BANNERS': 
-          return renderBannerCarousel();
-      case 'SERVICES':
-        return (
-          <View style={{padding: 10}}>
-            <Text style={{fontSize: 26, fontWeight: 'bold', marginBottom: 8}}>Services</Text>
-            <FlatList 
-              data={services}
-              renderItem={({item}) => 
-                <TouchableOpacity onPress={() => {
-                  Linking.openURL(item.key.link);
-                }}>
-                  <View style={{display: 'flex', flexDirection: 'row', paddingBottom: 10, paddingTop: 10}}>
-                    <Image style={{height: 60, width: 60}} source={{uri: item.key.image}}/>
-                    <View style={{paddingLeft: 10, justifyContent: 'center'}}>
-                      <Text style={{color: colors.foregroundColor, fontWeight: 'bold', fontSize: 20}}>{item.key.title}</Text>
-                      <Text style={{color: '#a8a8a8'}}>{item.key.description}</Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              }
-            />
-          </View>
-        );
+      case WalletsListSections.BANNERS:
+        return renderBannerCarousel();
+      case WalletsListSections.SERVICES:
+        return <ServicesListItem item={item.item} />;
       default:
         return null;
     }
   };
 
-  const renderSectionHeader = section => {
+  const renderSectionHeader = (section) => {
+    console.log(section);
     switch (section.section.key) {
       case WalletsListSections.CAROUSEL:
         return isLargeScreen ? null : (
-          <BlueHeaderDefaultMain leftText={loc.wallets.list_title} onNewWalletPress={() => navigate('AddWalletRoot')} />
+          <BlueHeaderDefaultMain
+            leftText={loc.wallets.list_title}
+            onNewWalletPress={() => navigate('AddWalletRoot')}
+          />
         );
       case WalletsListSections.TRANSACTIONS:
         return renderListHeaderComponent();
+      case WalletsListSections.SERVICES:
+        return <ServicesListHeader services={[]} />;
       default:
         return null;
     }
   };
 
-  const renderSectionFooter = section => {
+  const renderSectionFooter = (section) => {
     switch (section.section.key) {
       case WalletsListSections.TRANSACTIONS:
         if (dataSource.length === 0 && !isLoading) {
           return (
-            <View style={styles.footerRoot} testID="NoTransactionsMessage">
-              <Text style={styles.footerEmpty}>{loc.wallets.list_empty_txs1}</Text>
-              <Text style={styles.footerStart}>{loc.wallets.list_empty_txs2}</Text>
+            <View style={styles.footerRoot} testID='NoTransactionsMessage'>
+              <Text style={styles.footerEmpty}>
+                {loc.wallets.list_empty_txs1}
+              </Text>
+              <Text style={styles.footerStart}>
+                {loc.wallets.list_empty_txs2}
+              </Text>
             </View>
           );
         } else {
@@ -395,7 +549,7 @@ const WalletsList = () => {
           <FButton
             onPress={onScanButtonPressed}
             onLongPress={isMacCatalina ? undefined : sendButtonLongPress}
-            icon={<Image resizeMode="stretch" source={scanImage} />}
+            icon={<Image resizeMode='stretch' source={scanImage} />}
             text={loc.send.details_scan}
           />
         </FContainer>
@@ -411,18 +565,25 @@ const WalletsList = () => {
 
   const onScanButtonPressed = () => {
     if (isMacCatalina) {
-      fs.showActionSheet({ anchor: findNodeHandle(walletActionButtonsRef.current) }).then(onBarScanned);
+      fs.showActionSheet({
+        anchor: findNodeHandle(walletActionButtonsRef.current),
+      }).then(onBarScanned);
     } else {
       scanqrHelper(navigate, routeName, false).then(onBarScanned);
     }
   };
 
-  const onBarScanned = value => {
+  const onBarScanned = (value) => {
     if (!value) return;
-    DeeplinkSchemaMatch.navigationRouteFor({ url: value }, completionValue => {
-      ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
-      navigate(...completionValue);
-    });
+    DeeplinkSchemaMatch.navigationRouteFor(
+      { url: value },
+      (completionValue) => {
+        ReactNativeHapticFeedback.trigger('impactLight', {
+          ignoreAndroidSystemSettings: false,
+        });
+        navigate(...completionValue);
+      }
+    );
   };
 
   const copyFromClipboard = async () => {
@@ -430,18 +591,29 @@ const WalletsList = () => {
   };
 
   const sendButtonLongPress = async () => {
-    const isClipboardEmpty = (await BlueClipboard.getClipboardContent()).trim().length === 0;
+    const isClipboardEmpty =
+      (await BlueClipboard.getClipboardContent()).trim().length === 0;
     if (Platform.OS === 'ios') {
       if (isMacCatalina) {
-        fs.showActionSheet({ anchor: findNodeHandle(walletActionButtonsRef.current) }).then(onBarScanned);
+        fs.showActionSheet({
+          anchor: findNodeHandle(walletActionButtonsRef.current),
+        }).then(onBarScanned);
       } else {
-        const options = [loc._.cancel, loc.wallets.list_long_choose, loc.wallets.list_long_scan];
+        const options = [
+          loc._.cancel,
+          loc.wallets.list_long_choose,
+          loc.wallets.list_long_scan,
+        ];
         if (!isClipboardEmpty) {
           options.push(loc.wallets.list_long_clipboard);
         }
         ActionSheet.showActionSheetWithOptions(
-          { options, cancelButtonIndex: 0, anchor: findNodeHandle(walletActionButtonsRef.current) },
-          buttonIndex => {
+          {
+            options,
+            cancelButtonIndex: 0,
+            anchor: findNodeHandle(walletActionButtonsRef.current),
+          },
+          (buttonIndex) => {
             if (buttonIndex === 1) {
               fs.showImagePickerAndReadImage().then(onBarScanned);
             } else if (buttonIndex === 2) {
@@ -449,7 +621,7 @@ const WalletsList = () => {
             } else if (buttonIndex === 3) {
               copyFromClipboard();
             }
-          },
+          }
         );
       }
     } else if (Platform.OS === 'android') {
@@ -465,7 +637,8 @@ const WalletsList = () => {
         },
         {
           text: loc.wallets.list_long_scan,
-          onPress: () => scanqrHelper(navigate, routeName, false).then(onBarScanned),
+          onPress: () =>
+            scanqrHelper(navigate, routeName, false).then(onBarScanned),
         },
       ];
       if (!isClipboardEmpty) {
@@ -482,65 +655,26 @@ const WalletsList = () => {
     }
   };
 
-  const onLayout = _e => {
-    setIsLargeScreen(Platform.OS === 'android' ? isTablet() : width >= Dimensions.get('screen').width / 2 && (isTablet() || isDesktop));
+  const onLayout = (_e) => {
+    setIsLargeScreen(
+      Platform.OS === 'android'
+        ? isTablet()
+        : width >= Dimensions.get('screen').width / 2 &&
+            (isTablet() || isDesktop)
+    );
   };
 
   const onRefresh = () => {
     refreshTransactions(true, false);
   };
 
-  // const ServicesList = () => {
-  //   const [services, setServices] = useState([]);
-  //   // const services = [
-  //   //   {
-  //   //     key: {
-  //   //       title: 'test service',
-  //   //       description: 'This is a small description about this thing',
-  //   //       image: 'http://155.138.221.92:8000/icons/Hero%20Wallet%20Icon%20Black.png',
-  //   //       link: 'https://www.google.com',
-  //   //     }
-  //   //   },
-  //   // ];
-
-  //   useEffect(() => {
-  //     (async () => {
-  //       const response = await fetch('https://api.jsonbin.io/b/61144d4ae1b0604017adaa89/2', {
-  //         headers: {
-  //           'Secret-Key': '$2b$10$Fh8TMR6T2FMboZlixjHwZ.icJuaarXOZN9FVgwHWaPbwc0dxpyY3e'
-  //         }
-  //       });
-  //       const data = await response.json();
-  //       setServices(data);
-  //     })();
-  //   }, []);
-
-  //   return (
-  //     <View style={{padding: 10}}>
-  //       <Text style={{fontSize: 26, fontWeight: 'bold', marginBottom: 8}}>Services</Text>
-  //       <FlatList 
-  //         data={services}
-  //         renderItem={({item}) => 
-  //           <TouchableOpacity onPress={() => {
-  //             Linking.openURL(item.key.link);
-  //           }}>
-  //             <View style={{display: 'flex', flexDirection: 'row', paddingBottom: 10, paddingTop: 10}}>
-  //               <Image style={{height: 60, width: 60}} source={{uri: item.key.image}}/>
-  //               <View style={{paddingLeft: 10, justifyContent: 'center'}}>
-  //                 <Text style={{color: colors.foregroundColor, fontWeight: 'bold', fontSize: 20}}>{item.key.title}</Text>
-  //                 <Text style={{color: '#a8a8a8'}}>{item.key.description}</Text>
-  //               </View>
-  //             </View>
-  //           </TouchableOpacity>
-  //         }
-  //       />
-  //     </View>
-  //   );
-  // }
-
   return (
     <View style={styles.root} onLayout={onLayout}>
-      <StatusBar barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
+        backgroundColor='transparent'
+        translucent
+      />
       <View style={[styles.walletsListWrapper, stylesHook.walletsListWrapper]}>
         <SectionList
           onRefresh={onRefresh}
@@ -552,11 +686,18 @@ const WalletsList = () => {
           contentInset={styles.scrollContent}
           renderSectionFooter={renderSectionFooter}
           sections={[
-            { key: WalletsListSections.CAROUSEL, data: [WalletsListSections.CAROUSEL] },
-            { key: 'BANNERS', data: ['BANNERS'] },
-            { key: 'SERVICES', data: ['SERVICES'] }
-            // { key: WalletsListSections.LOCALTRADER, data: [WalletsListSections.LOCALTRADER] },
-            // { key: WalletsListSections.TRANSACTIONS, data: dataSource },
+            {
+              key: WalletsListSections.CAROUSEL,
+              data: [WalletsListSections.CAROUSEL],
+            },
+            {
+              key: WalletsListSections.BANNERS,
+              data: [WalletsListSections.BANNERS],
+            },
+            {
+              key: WalletsListSections.SERVICES,
+              data: services,
+            },
           ]}
         />
       </View>
@@ -566,7 +707,10 @@ const WalletsList = () => {
 };
 
 export default WalletsList;
-WalletsList.navigationOptions = navigationStyle({}, opts => ({ ...opts, title: '' }));
+WalletsList.navigationOptions = navigationStyle({}, (opts) => ({
+  ...opts,
+  title: '',
+}));
 
 const styles = StyleSheet.create({
   root: {
